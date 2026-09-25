@@ -197,7 +197,7 @@ export default function InboxPage() {
                     <div className="mb-1.5 flex flex-wrap items-center gap-2">
                       <Badge tone={STATUS_TONES[item.status]}>{t(`enums.status.${item.status}`)}</Badge>
                       {item.matchedRule ? <span className="text-[11px] text-slate-500">{item.matchedRule}</span> : null}
-                      <span dir="ltr" className="text-[11px] text-slate-600">
+                      <span className="text-[11px] text-slate-600">
                         {dateTime(item.postedAt ?? item.receivedAt)}
                       </span>
                       {item.appPackage ? <span className="text-[11px] text-slate-600">{item.appPackage}</span> : null}

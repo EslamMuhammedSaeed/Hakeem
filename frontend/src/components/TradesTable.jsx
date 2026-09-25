@@ -29,7 +29,7 @@ export default function TradesTable({ trades = [], onEdit, onDelete, compact = f
         <tbody>
           {trades.map((trade) => (
             <tr key={trade.id} className="border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30">
-              <td dir="ltr" className="tabular px-5 py-2.5 text-end whitespace-nowrap text-slate-400">
+              <td className="tabular px-5 py-2.5 whitespace-nowrap text-slate-400">
                 {dateTime(trade.executedAt)}
               </td>
               <td className="px-3 py-2.5">

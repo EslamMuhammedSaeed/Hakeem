@@ -187,7 +187,7 @@ export default function Positions() {
                     <td dir="ltr" className="tabular px-3 py-3 text-end text-slate-500">
                       {money(position.totalFees)}
                     </td>
-                    <td dir="ltr" className="tabular px-5 py-3 text-end whitespace-nowrap text-slate-500">
+                    <td className="tabular px-5 py-3 whitespace-nowrap text-slate-500">
                       {dateTime(position.lastTradeAt)}
                     </td>
                   </tr>

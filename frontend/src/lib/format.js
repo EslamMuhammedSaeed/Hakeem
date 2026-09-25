@@ -1,6 +1,9 @@
 import i18n from '../i18n/index.js';
 
 const TIMEZONE = 'Africa/Cairo';
+const LRI = '\u2066';
+const RLI = '\u2067';
+const PDI = '\u2069';
 
 const numberFormatters = new Map();
 const dateFormatters = new Map();
@@ -68,14 +71,25 @@ export function percent(value) {
   return `${formatted}%`;
 }
 
+/**
+ * Arabic dates include an Arabic month name. A surrounding `dir="ltr"` (table
+ * cells, the chart) or an Arabic sentence will reshuffle the leading day
+ * number to the far end. Isolate the formatted string in the locale's direction
+ * so the order stays "22 سبتمبر 2026" or "Sep 22, 2026" wherever it is inserted.
+ */
+function embedDate(text) {
+  const mark = i18n.resolvedLanguage?.startsWith('en') ? LRI : RLI;
+  return `${mark}${text}${PDI}`;
+}
+
 export function dateTime(value) {
   if (!value) return '-';
-  return dateFormatter(true).format(new Date(value));
+  return embedDate(dateFormatter(true).format(new Date(value)));
 }
 
 export function dateOnly(value) {
   if (!value) return '-';
-  return dateFormatter(false).format(new Date(value));
+  return embedDate(dateFormatter(false).format(new Date(value)));
 }
 
 export function toLocalInputValue(value) {
