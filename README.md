@@ -159,9 +159,12 @@ Reads (`GET` trades, portfolio, notifications, instruments, parse rules, the SSE
 because it does not save anything. Set the flag to true to put those routes behind the same session-or-key
 check as writes.
 
-The session cookie lasts 7 days, is `HttpOnly` and `SameSite=Lax`, and is `Secure` only when
-`NODE_ENV=production`. That fits a dashboard and API on the same host (localhost, one LAN address, or one
-HTTPS site). Login is limited to 10 attempts per 15 minutes per IP.
+The session cookie lasts 7 days, is `HttpOnly` and `SameSite=Lax`. `COOKIE_SECURE` controls the
+`Secure` flag. `auto` (the default) sets it from the request: direct HTTPS, or `X-Forwarded-Proto: https`
+from the trusted proxy. Plain HTTP leaves it off, so a browser on a testing server without TLS can keep
+the cookie. `true` always sets it and `false` never does. Production logs one warning when the flag is
+`false`, and `auto` logs once if a login actually arrives over plain HTTP. Login is limited to 10 attempts
+per 15 minutes per IP.
 
 Production refuses the documented `JWT_SECRET` and `SEED_USER_PASSWORD`. Generate a secret with the same
 `node -e` command used for the API key, and pick a seed password of at least 12 characters.
