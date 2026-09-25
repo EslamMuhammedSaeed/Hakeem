@@ -11,6 +11,9 @@ async function start() {
     await prisma.$queryRaw`SELECT 1`;
     logger.info('Database connection verified');
     await ensureSeedUser();
+    if (env.isProduction && env.COOKIE_SECURE === 'false') {
+      logger.warn('COOKIE_SECURE=false, so the session cookie is never marked Secure. Credentials travel unencrypted; TLS is recommended.');
+    }
   } catch (error) {
     logger.error(
       { err: error },

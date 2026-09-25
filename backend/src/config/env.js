@@ -11,6 +11,11 @@ const csv = (value) =>
 const DEV_JWT_SECRET = 'dev-only-change-this-secret-key-32b';
 const DEV_SEED_PASSWORD = 'el-hakeem-dev';
 
+const cookieSecureMode = z.preprocess((value) => {
+  if (value === undefined || value === null || value === '') return 'auto';
+  return String(value).trim().toLowerCase();
+}, z.enum(['auto', 'true', 'false']));
+
 const booleanFromEnv = z.preprocess((value) => {
   if (value === undefined || value === null || value === '') return false;
   if (typeof value === 'boolean') return value;
@@ -36,6 +41,7 @@ const schema = z
     SEED_USER_EMAIL: emailSchema.default('owner@localhost'),
     SEED_USER_PASSWORD: z.string().min(8, 'SEED_USER_PASSWORD must be at least 8 characters').default(DEV_SEED_PASSWORD),
     REQUIRE_AUTH_FOR_READS: booleanFromEnv,
+    COOKIE_SECURE: cookieSecureMode,
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') return;
