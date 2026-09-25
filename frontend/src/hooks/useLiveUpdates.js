@@ -5,6 +5,7 @@ import { streamUrl } from '../api/client.js';
 /**
  * Subscribes to the backend event stream and invalidates every query whenever a trade
  * or notification lands, so a fill on the phone shows up here without a refresh.
+ * The cookie is sent with the request; the URL does not carry an API key.
  */
 export function useLiveUpdates() {
   const queryClient = useQueryClient();
@@ -12,7 +13,7 @@ export function useLiveUpdates() {
   const [lastEventAt, setLastEventAt] = useState(null);
 
   useEffect(() => {
-    const source = new EventSource(streamUrl);
+    const source = new EventSource(streamUrl, { withCredentials: true });
 
     const invalidate = () => {
       setLastEventAt(new Date());

@@ -1,9 +1,22 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="ar" dir="rtl" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EGX Trade Tracker</title>
+    <meta name="theme-color" content="#0b1120" />
+    <meta name="description" content="الحكيم — متابعة صفقات البورصة المصرية من إشعارات ثاندر" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>الحكيم</title>
+    <script>
+      try {
+        var lang = localStorage.getItem('el-hakeem.lang');
+        if (lang === 'en' || lang === 'ar') {
+          document.documentElement.lang = lang;
+          document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+          document.title = lang === 'ar' ? 'الحكيم' : 'El Hakeem';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

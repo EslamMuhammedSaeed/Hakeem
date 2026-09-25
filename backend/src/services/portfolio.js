@@ -65,9 +65,7 @@ export function computeSymbolPosition(symbol, trades) {
 
   const warnings = [];
   if (unmatchedSellQty.gt(0)) {
-    warnings.push(
-      `Sold ${unmatchedSellQty.toFixed(2)} shares with no recorded purchase - realized P&L for those is excluded`,
-    );
+    warnings.push({ code: 'UNMATCHED_SELL', quantity: unmatchedSellQty.toFixed(2) });
   }
 
   return {

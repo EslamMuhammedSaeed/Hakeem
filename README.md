@@ -1,6 +1,6 @@
-# EGX Trade Tracker
+# El Hakeem
 
-A real-time trade tracking dashboard for [Thndr](https://thndr.app), which has no public API. An Android
+الحكيم is a real-time trade tracking dashboard for [Thndr](https://thndr.app) on the Egyptian Exchange (EGX). Thndr has no public API. An Android
 notification forwarder posts every Thndr push notification to a webhook; the backend stores the raw text,
 parses the Arabic into a structured trade, and the dashboard shows trades, FIFO positions and P&L.
 
@@ -22,7 +22,7 @@ re-run the parser after adding a rule.
 | Backend  | Node.js, Express 4, Prisma ORM, zod, helmet, pino                  |
 | Database | MySQL                                                             |
 | Frontend | React 18, Vite 6, Tailwind CSS 4, TanStack Query, Recharts         |
-| Security | Shared API key (`x-api-key`), CORS allowlist, per-minute rate limit |
+| Security | Dashboard session cookie, shared API key (`x-api-key`) for the phone and scripts, CORS allowlist, login rate limit |
 
 ## Quick start
 
@@ -32,16 +32,20 @@ Requires Node.js 20+ and a running MySQL server.
 # 1. Backend
 cd backend
 npm install
-cp .env.example .env          # then edit DATABASE_URL and WEBHOOK_API_KEY
-npx prisma migrate dev        # creates the tables
-npm run dev                   # http://localhost:4000
+cp .env.example .env          # set DATABASE_URL and WEBHOOK_API_KEY; the seed login defaults are fine locally
+npx prisma migrate dev        # creates the tables, including User
+npm run dev                   # http://localhost:4000 — seeds the user on first boot
 
 # 2. Frontend (second terminal)
 cd frontend
 npm install
-cp .env.example .env          # VITE_API_KEY must equal the backend's WEBHOOK_API_KEY
+cp .env.example .env          # VITE_API_URL only; the dashboard does not use an API key
 npm run dev                   # http://localhost:5173
 ```
+
+The dashboard opens in Arabic. Switch to English with the control in the sidebar; the choice is stored in the browser. By default you can browse trades without signing in. Adding, editing, or deleting trades, reparsing, and setting a mark price require a sign-in. The local account is `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` from `backend/.env` (`owner@localhost` / `el-hakeem-dev` unless you changed them). The password is applied only when the `User` table is empty, so editing it later does not reset an existing account.
+
+Set `REQUIRE_AUTH_FOR_READS=true` and restart the backend to require that same sign-in (or the API key) before any read, including the live stream. The frontend picks the flag up from `GET /api/auth/config` without a rebuild.
 
 Generate an API key with:
 
@@ -65,7 +69,7 @@ The phone needs to reach your machine. On the same Wi-Fi, use your LAN IP; other
 **1. Allow port 4000 through Windows Firewall** (PowerShell as Administrator, once):
 
 ```powershell
-netsh advfirewall firewall add rule name="EGX Trade Tracker" dir=in action=allow protocol=TCP localport=4000
+netsh advfirewall firewall add rule name="El Hakeem" dir=in action=allow protocol=TCP localport=4000
 ```
 
 **2. Install a notification forwarder** such as MacroDroid, Tasker, or "Notification Forwarder".
@@ -144,13 +148,37 @@ commission out of the proceeds, so realized P&L is already fee-adjusted.
 There is no public EGX price feed here, so unrealized P&L uses the **mark price**: click any mark price on
 the Positions page to set the current market price. Until you set one, the last traded price is used.
 
+## Signing in
+
+Writes always need either the httpOnly session cookie (from `POST /api/auth/login`) or the existing
+`x-api-key`. The phone webhook accepts only the API key, in both read modes, so a browser session cannot
+ingest notifications and the forwarder does not change.
+
+Reads (`GET` trades, portfolio, notifications, instruments, parse rules, the SSE stream, and
+`POST /api/parse/preview`) are public when `REQUIRE_AUTH_FOR_READS` is false. Preview is treated as a read
+because it does not save anything. Set the flag to true to put those routes behind the same session-or-key
+check as writes.
+
+The session cookie lasts 7 days, is `HttpOnly` and `SameSite=Lax`, and is `Secure` only when
+`NODE_ENV=production`. That fits a dashboard and API on the same host (localhost, one LAN address, or one
+HTTPS site). Login is limited to 10 attempts per 15 minutes per IP.
+
+Production refuses the documented `JWT_SECRET` and `SEED_USER_PASSWORD`. Generate a secret with the same
+`node -e` command used for the API key, and pick a seed password of at least 12 characters.
+
 ## API
 
-All routes require `x-api-key` (the `/api/stream` route accepts `?apiKey=` because EventSource cannot send
-headers). `/health` is open.
+`/health` and `GET /api/auth/config` are public. Dashboard routes accept a session cookie or `x-api-key`
+(header, `Authorization: Bearer`, or `?apiKey=` for non-browser clients). The dashboard itself sends the
+cookie and does not put the key in the bundle or on the stream URL. Whether reads require that credential
+depends on `REQUIRE_AUTH_FOR_READS`, described above.
 
 | Method | Route                                  | Purpose                                      |
 | ------ | -------------------------------------- | -------------------------------------------- |
+| GET    | `/api/auth/config`                     | `{ requireAuthForReads }` for the dashboard  |
+| POST   | `/api/auth/login`                      | Email and password; sets the session cookie  |
+| POST   | `/api/auth/logout`                     | Clears the session cookie                    |
+| GET    | `/api/auth/me`                         | The signed-in email, or 401                 |
 | POST   | `/api/webhook/notification`            | Ingest a forwarded notification              |
 | GET    | `/api/webhook/ping`                    | Check reachability and key from the phone    |
 | GET    | `/api/trades`                          | Filter, search and paginate trades           |
@@ -171,7 +199,8 @@ headers). `/health` is open.
 
 | Symptom                                | Cause and fix                                                                   |
 | -------------------------------------- | ------------------------------------------------------------------------------- |
-| Dashboard shows "Invalid or missing API key" | `VITE_API_KEY` does not match `WEBHOOK_API_KEY`. Restart Vite after editing `.env`. |
+| Dashboard cannot load, or sign-in does nothing | Backend down, wrong `VITE_API_URL`, or this origin missing from `CORS_ORIGINS`. An old `VITE_API_KEY` in the frontend env is ignored. |
+| Writes say sign-in is required | Expected until you sign in. Reads stay open unless `REQUIRE_AUTH_FOR_READS=true`. |
 | Backend exits on start                 | MySQL unreachable or `.env` incomplete; the log names the missing variable.       |
 | Phone gets no response                 | Firewall rule missing, wrong LAN IP, or phone on mobile data instead of Wi-Fi.    |
 | Notification arrives but no trade      | Open Inbox → `FAILED`, use the playground, add a rule, reparse.                  |

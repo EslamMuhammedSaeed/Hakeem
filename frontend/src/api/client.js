@@ -1,5 +1,20 @@
 export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-export const API_KEY = import.meta.env.VITE_API_KEY ?? '';
+
+let onUnauthenticated = () => {};
+
+export function setUnauthenticatedHandler(handler) {
+  onUnauthenticated = handler;
+}
+
+export class ApiError extends Error {
+  constructor(message, { status, code, details } = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
 
 async function request(path, { method = 'GET', body, params } = {}) {
   const url = new URL(`${API_URL}${path}`);
@@ -11,8 +26,8 @@ async function request(path, { method = 'GET', body, params } = {}) {
 
   const response = await fetch(url, {
     method,
+    credentials: 'include',
     headers: {
-      'x-api-key': API_KEY,
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -22,15 +37,23 @@ async function request(path, { method = 'GET', body, params } = {}) {
 
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const message = payload?.error ?? `Request failed with status ${response.status}`;
-    const details = payload?.details?.map?.((item) => `${item.path}: ${item.message}`).join(', ');
-    throw new Error(details ? `${message} (${details})` : message);
+    const error = new ApiError(payload?.error ?? `Request failed with status ${response.status}`, {
+      status: response.status,
+      code: payload?.code,
+      details: payload?.details,
+    });
+    if (error.code === 'UNAUTHENTICATED') onUnauthenticated();
+    throw error;
   }
   return payload;
 }
 
 export const api = {
   health: () => fetch(`${API_URL}/health`).then((response) => response.json()),
+  authConfig: () => request('/api/auth/config'),
+  me: () => request('/api/auth/me'),
+  login: (body) => request('/api/auth/login', { method: 'POST', body }),
+  logout: () => request('/api/auth/logout', { method: 'POST' }),
   summary: () => request('/api/portfolio/summary'),
   positions: (params) => request('/api/portfolio/positions', { params }),
   trades: (params) => request('/api/trades', { params }),
@@ -48,4 +71,4 @@ export const api = {
   setMarkPrice: (code, markPrice) => request(`/api/instruments/${code}`, { method: 'PATCH', body: { markPrice } }),
 };
 
-export const streamUrl = `${API_URL}/api/stream?apiKey=${encodeURIComponent(API_KEY)}`;
+export const streamUrl = `${API_URL}/api/stream`;

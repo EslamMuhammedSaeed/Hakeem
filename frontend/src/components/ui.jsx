@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function Card({ children, className = '' }) {
   return (
@@ -10,7 +11,7 @@ export function CardHeader({ title, subtitle, actions }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-5 py-4">
       <div>
-        <h2 className="text-sm font-semibold tracking-wide text-slate-200 uppercase">{title}</h2>
+        <h2 className="text-sm font-semibold text-slate-200">{title}</h2>
         {subtitle ? <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
@@ -86,10 +87,24 @@ export function EmptyState({ icon: Icon, title, description, action }) {
 }
 
 export function ErrorBanner({ error }) {
+  const { t, i18n } = useTranslation();
   if (!error) return null;
+  const translated = error.code && i18n.exists(`errors.${error.code}`) ? t(`errors.${error.code}`) : error.message;
+  const details = Array.isArray(error.details)
+    ? error.details.map((item) => `${item.path}: ${item.message}`).filter(Boolean).join(', ')
+    : '';
   return (
     <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-      {error.message}
+      {translated}
+      {details ? <span className="mt-1 block text-xs opacity-80">{details}</span> : null}
     </div>
+  );
+}
+
+export function Ltr({ children, className = '' }) {
+  return (
+    <bdi dir="ltr" className={className}>
+      {children}
+    </bdi>
   );
 }

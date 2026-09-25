@@ -1,0 +1,190 @@
+{
+  "brand": {
+    "name": "El Hakeem",
+    "tagline": "Thndr trade pipeline",
+    "description": "El Hakeem — EGX trades captured from Thndr notifications"
+  },
+  "lang": {
+    "switch": "Language"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "positions": "Positions",
+    "trades": "Trades",
+    "inbox": "Inbox"
+  },
+  "common": {
+    "loading": "Loading…",
+    "currency": "EGP"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signInToEdit": "Sign in to change data"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Recording trades requires the account seeded on the server.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "back": "Back to the dashboard"
+  },
+  "stream": {
+    "connected": "Live stream connected",
+    "polling": "Polling every 15s",
+    "lastEvent": "Last event {{time}}"
+  },
+  "dashboard": {
+    "title": "Portfolio",
+    "loading": "Loading portfolio…",
+    "connectionError": "Check that the backend is running on the URL in VITE_API_URL, and that this site is listed in CORS_ORIGINS.",
+    "summary": "{{tradeCount}} trades captured across {{symbolCount}} symbols, all amounts in {{currency}}",
+    "failed_one": "{{count}} notification could not be parsed. Open the inbox to see the text and add a rule.",
+    "failed_other": "{{count}} notifications could not be parsed. Open the inbox to see the text and add a rule.",
+    "totalPnl": "Total P&L",
+    "totalHint": "{{percent}} on {{cost}} cost basis",
+    "realized": "Realized",
+    "realizedHint": "Closed with FIFO matching",
+    "unrealized": "Unrealized",
+    "unrealizedHint": "Against mark price",
+    "marketValue": "Market value",
+    "openPositions_one": "{{count}} open position",
+    "openPositions_other": "{{count}} open positions",
+    "tradesToday": "Trades today",
+    "feesHint": "{{fees}} fees all time",
+    "chartTitle": "Cumulative realized P&L",
+    "chartSubtitle": "Stamped on the day each sale closed a lot",
+    "topPositions": "Top positions",
+    "byMarketValue": "By market value",
+    "noPositions": "No open positions.",
+    "recentTrades": "Recent trades",
+    "newestFirst": "Newest first",
+    "viewAll": "View all"
+  },
+  "positions": {
+    "title": "Positions",
+    "subtitle": "FIFO cost basis including commission. Click a mark price to set the current market price.",
+    "subtitleReadOnly": "FIFO cost basis including commission. Sign in to set a mark price.",
+    "loading": "Computing positions…",
+    "showClosed": "Show closed symbols",
+    "hideClosed": "Hide closed symbols",
+    "holdings": "Holdings",
+    "symbolCount_one": "{{count}} symbol",
+    "symbolCount_other": "{{count}} symbols",
+    "emptyTitle": "No positions yet",
+    "emptyDescription": "Once a buy notification is parsed, the position appears here with its FIFO cost basis.",
+    "symbol": "Symbol",
+    "qty": "Qty",
+    "avgCost": "Avg cost",
+    "mark": "Mark",
+    "marketValue": "Market value",
+    "unrealized": "Unrealized",
+    "realized": "Realized",
+    "fees": "Fees",
+    "lastTrade": "Last trade",
+    "closed": "closed",
+    "setMark": "Click to set the current market price",
+    "lastTradeMark": "last",
+    "save": "Save",
+    "unmatchedSell": "Sold {{quantity}} shares with no recorded purchase. Realized P&L for those is excluded."
+  },
+  "trades": {
+    "title": "Trades",
+    "summaryLoading": "Loading",
+    "summary_one": "{{count}} trade — parsed from a notification or added by hand",
+    "summary_other": "{{count}} trades — parsed from notifications or added by hand",
+    "csv": "CSV",
+    "add": "Add trade",
+    "filters": "Filters",
+    "reset": "Reset",
+    "searchPlaceholder": "Symbol or note",
+    "anySide": "Any side",
+    "anySource": "Any source",
+    "from": "From",
+    "to": "To",
+    "all": "All trades",
+    "page": "Page {{page}} of {{pageCount}}",
+    "prev": "Prev",
+    "next": "Next",
+    "loading": "Loading trades…",
+    "confirmDelete": "Delete the {{side}} of {{symbol}} on {{when}}?",
+    "empty": "No trades match these filters yet.",
+    "when": "When",
+    "side": "Side",
+    "symbol": "Symbol",
+    "qty": "Qty",
+    "price": "Price",
+    "fees": "Fees",
+    "net": "Net",
+    "source": "Source",
+    "edit": "Edit trade",
+    "delete": "Delete trade",
+    "editTitle": "Edit trade",
+    "addTitle": "Add trade manually",
+    "quantity": "Quantity",
+    "note": "Note",
+    "notePlaceholder": "Optional",
+    "symbolPlaceholder": "COMI",
+    "executedAt": "Executed at",
+    "netAmount": "Net amount:",
+    "grossPlusFees": "(gross + fees)",
+    "grossMinusFees": "(gross − fees)",
+    "cancel": "Cancel",
+    "save": "Save changes"
+  },
+  "inbox": {
+    "title": "Notification inbox",
+    "subtitle": "Every notification is stored verbatim. Fix a rule, then reparse.",
+    "rulesFile": "Rules live in backend/src/services/parser/rules.js.",
+    "reparseFailed": "Reparse failed",
+    "reparseResult": "Reparsed {{total}}: {{parsed}} became trades, {{ignored}} ignored, {{failed}} still unmatched.",
+    "playgroundTitle": "Parser playground",
+    "playgroundSubtitle": "Paste a real Thndr notification to see exactly what the rules extract. Nothing is saved.",
+    "placeholder": "تم تنفيذ أمر شراء 100 سهم من COMI بسعر 85.50 جنيه",
+    "testParse": "Test parse",
+    "matched": "matched {{rule}}",
+    "nonTrade": "Treated as a non-trade notification.",
+    "normalized": "Normalized:",
+    "activeRules_one": "Active rules ({{count}})",
+    "activeRules_other": "Active rules ({{count}})",
+    "received": "Received notifications",
+    "stored_one": "{{count}} stored",
+    "stored_other": "{{count}} stored",
+    "search": "Search text",
+    "loading": "Loading inbox…",
+    "emptyTitle": "Nothing here yet",
+    "emptyDescription": "Forward a notification from the phone, or run node scripts/simulate.js in the backend folder to send samples.",
+    "reparse": "Reparse with the current rules",
+    "delete": "Delete",
+    "confirmDelete": "Delete this notification and any trade it produced?"
+  },
+  "chart": {
+    "empty": "Realized P&L appears here once you have closed part of a position.",
+    "cumulative": "Cumulative",
+    "thatDay": "That day"
+  },
+  "enums": {
+    "side": {
+      "BUY": "Buy",
+      "SELL": "Sell"
+    },
+    "source": {
+      "NOTIFICATION": "Notification",
+      "MANUAL": "Manual"
+    },
+    "status": {
+      "ALL": "All",
+      "PARSED": "Parsed",
+      "FAILED": "Failed",
+      "IGNORED": "Ignored",
+      "PENDING": "Pending"
+    }
+  },
+  "errors": {
+    "UNAUTHENTICATED": "Sign in required.",
+    "INVALID_CREDENTIALS": "Email or password is incorrect.",
+    "RATE_LIMITED": "Too many login attempts. Wait and try again.",
+    "VALIDATION_FAILED": "Check the highlighted fields."
+  }
+}

@@ -1,19 +1,17 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { dateOnly, money } from '../lib/format.js';
 
 export default function PnlChart({ series = [] }) {
+  const { t } = useTranslation();
   const data = series.map((point) => ({ ...point, cumulative: Number(point.cumulative), realized: Number(point.realized) }));
 
   if (data.length === 0) {
-    return (
-      <div className="flex h-64 items-center justify-center text-sm text-slate-500">
-        Realized P&amp;L appears here once you have closed part of a position.
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center text-sm text-slate-500">{t('chart.empty')}</div>;
   }
 
   return (
-    <div className="h-64 w-full px-2 py-4">
+    <div className="h-64 w-full px-2 py-4" dir="ltr">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
           <defs>
@@ -26,7 +24,7 @@ export default function PnlChart({ series = [] }) {
           <XAxis
             dataKey="date"
             tick={{ fill: '#64748b', fontSize: 11 }}
-            tickFormatter={(value) => dateOnly(value).slice(0, 6)}
+            tickFormatter={(value) => dateOnly(value)}
             axisLine={{ stroke: '#1e293b' }}
             tickLine={false}
           />
@@ -35,13 +33,16 @@ export default function PnlChart({ series = [] }) {
             tickFormatter={(value) => money(value)}
             axisLine={false}
             tickLine={false}
-            width={70}
+            width={72}
           />
           <Tooltip
             contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: '#94a3b8' }}
             labelFormatter={(value) => dateOnly(value)}
-            formatter={(value, name) => [`${money(value)} EGP`, name === 'cumulative' ? 'Cumulative' : 'That day']}
+            formatter={(value, name) => [
+              `${money(value)} ${t('common.currency')}`,
+              name === 'cumulative' ? t('chart.cumulative') : t('chart.thatDay'),
+            ]}
           />
           <Area type="monotone" dataKey="cumulative" stroke="#38bdf8" strokeWidth={2} fill="url(#pnlFill)" />
         </AreaChart>

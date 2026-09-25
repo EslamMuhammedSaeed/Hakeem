@@ -5,8 +5,8 @@ export const streamRouter = Router();
 
 /**
  * Server-sent events so a fill shows up on the dashboard the moment the webhook
- * stores it. EventSource cannot send headers, which is why the API key is accepted
- * as an `apiKey` query parameter for this route.
+ * stores it. The dashboard authenticates with the session cookie
+ * (`EventSource` `withCredentials`). Non-browser clients may still pass `?apiKey=`.
  */
 streamRouter.get('/', (req, res) => {
   res.writeHead(200, {
