@@ -1,6 +1,6 @@
 # El Hakeem updates — implementation plan
 
-Stage 1 only. This document is the plan for three changes on `feature/el-hakeem-arabic-branding-auth`. No application code is included in this commit.
+Approved for implementation on `feature/el-hakeem-arabic-branding-auth`. The owner accepted the open questions below, with one change: reads are public unless `REQUIRE_AUTH_FOR_READS=true` (see section 3).
 
 The app today is a single-operator EGX tracker: an Android forwarder posts Thndr notifications to `POST /api/webhook/notification` with `x-api-key`, Express stores and parses them, and a React dashboard reads the same key from `VITE_API_KEY` (including on the SSE URL). UI copy is hard-coded English. The sidebar brand is "EGX Tracker". There is no user model.
 
@@ -219,25 +219,25 @@ The phone contract does not change: `POST /api/webhook/notification` and `GET /a
 
 ### Route policy
 
-| Route | Who |
-| --- | --- |
-| `GET /health` | Public. Unchanged. |
-| `POST /api/auth/login` | Public, rate-limited. |
-| `POST /api/auth/logout` | Public so a dead cookie can still be cleared. Always clears the cookie. |
-| `GET /api/auth/me` | Session cookie only. The API key is not a user and must not return 200 here. |
-| `POST /api/webhook/notification`, `GET /api/webhook/ping` | `x-api-key` only, unchanged. A session cookie is not a substitute, so a stolen browser cookie cannot ingest notifications. |
-| `GET /api/trades`, `GET /api/portfolio/*`, `GET /api/notifications`, `GET /api/instruments`, `GET /api/parse/rules` | Session **or** API key. |
-| `POST /api/parse/preview` | Session **or** API key. It does not persist, but it is a private tool. |
-| `POST` / `PATCH` / `DELETE /api/trades` | Session **or** API key. |
-| `POST /api/notifications/:id/reparse`, `POST /api/notifications/reparse-failed`, `POST /api/notifications/reparse-all`, `DELETE /api/notifications/:id` | Session **or** API key. |
-| `PATCH /api/instruments/:code` | Session **or** API key. |
-| `GET /api/stream` | Session **or** API key. |
+`REQUIRE_AUTH_FOR_READS` (boolean, default `false`) is validated in `env.js`. One middleware, `requireAccess`, is mounted on the dashboard routers. It classifies the request once: writes always call `requireUserOrApiKey`; reads call it only when the flag is true. No per-route copies.
 
-Reads stay gated. Positions, fills, and the inbox are private financial data, and they are already key-gated. Opening them would be a regression, and SSE carries trade events, so a public stream would leak the same data. The API key remains a valid read credential so curl and the existing scripts keep working.
+`POST /api/parse/preview` is a **read**. It does not persist a notification or a trade; it runs the rule table over text the caller already has. Grouping it with reads keeps the parser playground usable in the default open dashboard. When the flag is true it is gated with the other reads.
 
-Writes the owner named (trades, reparse, mark price) plus notification delete and parse preview use the same dual gate. One middleware, no per-route exceptions to forget.
+| Route | `REQUIRE_AUTH_FOR_READS=false` (default) | `REQUIRE_AUTH_FOR_READS=true` |
+| --- | --- | --- |
+| `GET /health` | Public | Public |
+| `GET /api/auth/config` | Public. Returns `{ requireAuthForReads }` so the UI adapts without a rebuild. | Public |
+| `POST /api/auth/login` | Public, rate-limited | Public, rate-limited |
+| `POST /api/auth/logout` | Public. Always clears the cookie. | Public |
+| `GET /api/auth/me` | Session cookie only. The API key is not a user. | Session cookie only |
+| `POST /api/webhook/notification`, `GET /api/webhook/ping` | `x-api-key` only, both modes. A session cookie is not a substitute. | Same |
+| `GET` trades, portfolio, notifications, instruments, parse rules, and `GET /api/stream` | Public | Session **or** API key |
+| `POST /api/parse/preview` | Public (a read; see above) | Session **or** API key |
+| `POST` / `PATCH` / `DELETE /api/trades` | Session **or** API key | Session **or** API key |
+| Reparse, reparse-failed, reparse-all, notification `DELETE` | Session **or** API key | Session **or** API key |
+| `PATCH /api/instruments/:code` | Session **or** API key | Session **or** API key |
 
-`requireApiKey` stays exported for the webhook. Dashboard routers switch from `requireApiKey` to `requireUserOrApiKey`.
+`requireApiKey` stays on the webhook only. `?apiKey=` remains a valid key source for non-browser clients.
 
 ### Session mechanism
 
@@ -304,6 +304,7 @@ Environment, validated in `backend/src/config/env.js` with zod, same style as `W
 | `JWT_SECRET` | `dev-only-change-this-secret-key-32b` | Min 32 characters. In `production`, reject this default. |
 | `SEED_USER_EMAIL` | `owner@localhost` | `z.string().email()`, stored lowercased. |
 | `SEED_USER_PASSWORD` | `el-hakeem-dev` | Min 8 characters. In `production`, min 12 and reject `el-hakeem-dev`. |
+| `REQUIRE_AUTH_FOR_READS` | `false` | Boolean. `true` / `false` / `1` / `0`. Default false when unset. |
 
 Development is allowed to boot with those documented defaults so `cp .env.example .env` still works after the owner sets `DATABASE_URL` and a real `WEBHOOK_API_KEY` (that key still refuses `change-me` in every environment).
 
@@ -317,7 +318,9 @@ No signup route and no password-change route in this pass.
 
 ### Endpoints
 
-All three live in `backend/src/routes/auth.routes.js` and are mounted at `/api/auth` **before** the dashboard gate, and not behind `requireApiKey`.
+Auth routes live in `backend/src/routes/auth.routes.js` and are mounted at `/api/auth` **before** the dashboard gate, and not behind `requireApiKey`.
+
+`GET /api/auth/config` is public and returns `{ requireAuthForReads }`. The frontend reads this at runtime. Changing the env var and restarting the backend is enough; Vite does not embed the flag.
 
 `POST /api/auth/login`
 
@@ -355,18 +358,20 @@ The normal dashboard stops reading `VITE_API_KEY`.
 - Delete `API_KEY` and the `x-api-key` header.
 - `credentials: 'include'` on every `fetch`, including login, logout, and `/health` (harmless).
 - Stream URL is `${API_URL}/api/stream` with no query. `useLiveUpdates` uses `new EventSource(streamUrl, { withCredentials: true })`.
-- `api.login`, `api.logout`, `api.me`.
+- `api.login`, `api.logout`, `api.me`, `api.authConfig`.
 
-Session state is the TanStack Query `['me']`, `retry: false`. Do not add a second auth context that can drift from the query cache. A small `useSession` hook can wrap it.
+Session state is the TanStack Query `['me']`, `retry: false`. A 401 from `/api/auth/me` is an anonymous session (`null`), not a hard error. `['auth-config']` holds `{ requireAuthForReads }`. Do not add a second auth context.
 
 Routing in `App.jsx`:
 
-- `/login` renders `Login.jsx` with no sidebar.
-- Every other route is nested under `RequireAuth`. That component treats a pending `me` query as a spinner, a 401 as `<Navigate to="/login" replace />`, and success as `<Outlet />` wrapped in `Layout`.
-- `useLiveUpdates` stays inside `Layout`, so no EventSource is opened before login.
-- After a successful login, seed the `me` cache and navigate to the previous path or `/`.
-- Logout button in the sidebar footer and the mobile header: `POST /api/auth/logout`, clear the query cache, navigate to `/login`.
-- If a later request returns `UNAUTHENTICATED`, the query client should drop `me` and the guard sends the user to `/login`. A response interceptor in `request()` can do that without wrapping every page.
+- `/login` renders `Login.jsx` with no sidebar. The language switcher and wordmark are on the page. A signed-in user is sent back to the previous path or `/`.
+- Every other route is nested under `RequireAuth`, then `Layout`.
+- `RequireAuth` waits for config and session. If `requireAuthForReads` is true and there is no session, it redirects to `/login`. If the flag is false, it renders the dashboard for anonymous visitors.
+- Write controls (add, edit, delete trade, mark price, reparse, delete notification) render only when `useCanWrite()` is true (a session email). Otherwise they are replaced by a sign-in prompt. The parser playground stays available in open-read mode because preview is a read.
+- Sign in and sign out are visible in the sidebar and the mobile header in both modes.
+- `useLiveUpdates` stays inside `Layout`. `EventSource` uses `withCredentials: true` and no `apiKey` query. In open-read mode the stream connects without a cookie.
+- After login, seed the `me` cache and navigate to the previous path or `/`.
+- A later `UNAUTHENTICATED` response clears `me`. In required mode the guard then redirects. In open mode the write controls disappear.
 
 `Login.jsx` uses the existing `Input`, `Button`, `ErrorBanner`, and card styles. Fields: email, password. Submit via zod on the server; the client only requires non-empty fields. Errors use `errors.INVALID_CREDENTIALS` and `errors.RATE_LIMITED`. The language switcher is on this page too. The wordmark is the same `ح` + `brand.name`.
 
@@ -409,7 +414,7 @@ Do not change `webhook.routes.js` behavior, `simulate.js`, or `reset.js`.
 
 1. **Cookie JWT, not localStorage and not a session table.** It is the option that works with `EventSource` without putting a secret in the URL, and it does not need Redis or a session cleaner. `jose` fits the ESM backend. `tokenVersion` is the escape hatch for revocation.
 2. **`SameSite=Lax`, `Secure` only in production.** Matches localhost and the documented LAN HTTP setup. Split-site HTTPS is a future change, not this one.
-3. **Dual gate on every existing dashboard route, reads included.** Writes cannot be anonymous. Reads stay private because they already are, and because the stream repeats trade data. The webhook stays key-only so the phone is unchanged and a browser session cannot ingest notifications.
+3. **Writes always require a session or the API key. Reads are public unless `REQUIRE_AUTH_FOR_READS=true`.** The owner asked for a browsable dashboard by default, with a switch to lock reads down. One `requireAccess` policy implements both. The webhook stays key-only in both modes. Preview is classified as a read so the playground matches the inbox.
 4. **`bcryptjs` cost 12.** Portable on the Windows setup this repo documents. argon2id is better cryptographically and worse as an install here.
 5. **Seed once when the table is empty.** Env defaults are for local boot, not a password reset switch. Production refuses the published default password and the published `JWT_SECRET`.
 6. **The browser bundle no longer contains the webhook key.** `VITE_API_KEY` is unused. Scripts and the phone keep using `WEBHOOK_API_KEY` from the backend environment, which was always the right place for it.
@@ -431,9 +436,9 @@ Do not change `webhook.routes.js` behavior, `simulate.js`, or `reset.js`.
 3. From `backend/`: `npx prisma migrate dev` (name the migration `add_user` if Prisma asks). This creates `User` only. Trades, notifications, and instruments stay.
 4. Restart the backend. The first boot inserts the seed user. Later boots do not reset the password.
 5. Frontend: `VITE_API_KEY` is ignored. Remove it from `frontend/.env` when convenient. Keep `VITE_API_URL`. Restart Vite.
-6. Open the dashboard, sign in with the seed email and password. The phone's MacroDroid (or Tasker) action is unchanged: same URL, same `x-api-key` header, same JSON.
-7. An **old** dashboard build that still sends `x-api-key` keeps working against the new API. A **new** dashboard against an **old** API does not: login and cookies will 404. Ship backend and frontend together.
-8. Anyone who relied on the dashboard working with only the shared key, and no login, must sign in. That is the intended break.
+6. Leave `REQUIRE_AUTH_FOR_READS` unset or `false` to browse without login. Set it to `true` and restart the backend to require a session (or the API key) for reads. No frontend rebuild.
+7. Open the dashboard. Reads work anonymously by default. Sign in with the seed email and password to add or edit trades. The phone's MacroDroid (or Tasker) action is unchanged: same URL, same `x-api-key` header, same JSON.
+8. An **old** dashboard build that still sends `x-api-key` keeps working against the new API. A **new** dashboard against an **old** API does not: `/api/auth/config` will 404. Ship backend and frontend together.
 9. `GET /api/stream?apiKey=` still works for a non-browser client. The new UI does not use it.
 
 ---
@@ -446,8 +451,8 @@ Do not change `webhook.routes.js` behavior, `simulate.js`, or `reset.js`.
 4. Branding: `ح` wordmark, favicon, fontsource face, `index.html` title and meta, package `name` fields, CSV prefix, README product name. Language-dependent title uses `brand.name`.
 5. Prisma `User` model and migration. Env schema and `.env.example` for `JWT_SECRET`, `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`. `bcryptjs` hash and `ensureSeedUser` on boot.
 6. `auth.service`, cookie helper, login rate limit, `/api/auth/login|logout|me`. CORS `credentials: true`. pino redact for `cookie` and `query.apiKey`.
-7. `requireUserOrApiKey` on the dashboard routers in `app.js`. Leave `webhook.routes.js` on `requireApiKey` only.
-8. Frontend client: `credentials: 'include'`, delete `VITE_API_KEY` usage, EventSource `withCredentials` and no query key. `Login` page, `RequireAuth`, logout control, 401 handling.
+7. `requireAccess` on the dashboard routers in `app.js` (writes always, reads only when `REQUIRE_AUTH_FOR_READS`). Leave `webhook.routes.js` on `requireApiKey` only. Public `GET /api/auth/config`.
+8. Frontend client: `credentials: 'include'`, delete `VITE_API_KEY` usage, EventSource `withCredentials` and no query key. `Login` page, `RequireAuth` that redirects only when the config flag is true, write controls hidden behind a sign-in prompt otherwise, sign-in / sign-out always visible.
 9. README: quick start login, auth description, troubleshooting, breaking-change steps, webhook section unchanged in substance.
 10. Verification pass below, then fix whatever it finds. Screenshots of Arabic UI, English UI, and the login page.
 
@@ -486,13 +491,13 @@ Against a migrated database:
 2. `POST /api/trades` with `x-api-key` → `201` (or `400` on a bad body, not `401`).
 3. `POST /api/webhook/notification` with `x-api-key` and no cookie → same behavior as today (`node scripts/simulate.js`). Without the key → `401`. A session cookie alone does not authorize the webhook.
 4. `POST /api/auth/login` with the seed user → `200`, `Set-Cookie` has `HttpOnly` and no token in the JSON body.
-5. From the Vite origin, `GET /api/trades` with credentials and no `x-api-key` header → `200`.
-6. `GET /api/auth/me` with the cookie → `200`. With only the API key → `401`.
-7. Wrong password → generic `INVALID_CREDENTIALS`. Eleven login posts in 15 minutes from one IP → `429`.
-8. In the browser: logged-out visit to `/trades` redirects to `/login`. After login, add a trade, edit it, delete it. Set a mark price. Reparse from the inbox. Network panel shows `POST /api/trades` with a cookie and without `x-api-key`.
-9. EventSource request URL is `/api/stream` with no `apiKey`. The sidebar reports the stream connected. A simulated notification shows up without a manual refresh.
-10. Logout, then confirm `/` redirects to `/login` and `/api/trades` without the cookie is `401`.
-11. `GET /health` with no credentials still returns `200`.
+5. With `REQUIRE_AUTH_FOR_READS=false`: anonymous `GET /api/trades`, `GET /api/portfolio/summary`, `GET /api/notifications`, `GET /api/instruments`, `GET /api/parse/rules`, `POST /api/parse/preview`, and `GET /api/stream` return `200`. The same calls with the flag `true` and no cookie or key return `401`.
+6. Anonymous `POST /api/trades`, `PATCH` mark price, and `POST` reparse return `401` in **both** modes. The same writes with `x-api-key` or a session cookie succeed.
+7. `GET /api/auth/config` is `200` without credentials in both modes and reports the flag. `GET /api/auth/me` with the cookie → `200`. With only the API key → `401`.
+8. Wrong password → generic `INVALID_CREDENTIALS`.
+9. In the browser, flag false: `/trades` loads anonymously, add/edit/delete and mark price and reparse are replaced by a sign-in prompt, sign in is visible. After login those controls work and the request sends a cookie, not `x-api-key`. Flag true: a logged-out visit redirects to `/login`.
+10. EventSource request URL is `/api/stream` with no `apiKey`. The sidebar reports the stream connected.
+11. `GET /health` with no credentials still returns `200`. The webhook is unchanged in both modes.
 
 ### Branding
 
@@ -500,12 +505,12 @@ Check the favicon request returns the SVG, the README title, and both package na
 
 ---
 
-## Open questions
+## Owner decisions
 
-1. **Single seeded user, no signup and no password change.** Assumed. If this pass should include a change-password form, it should bump `tokenVersion` and is a small addition on top of the same model.
-2. **Latin digits in the Arabic UI** (`ar-EG-u-nu-latn`). Assumed, so prices match tickers and the English screen. Say if you want Arabic-Indic digits instead.
-3. **Reads require a session or the API key**, same as today. Assumed, because the data is private and SSE repeats it. Say if the dashboard should be readable on the LAN with no login.
-4. **Cookie lifetime is 7 days**, and it survives browser restarts. Say if you would rather have a session cookie that disappears when the browser closes.
-5. **`?apiKey=` remains valid** on the API for scripts, including `/api/stream`. The new UI will not use it. Say if that query parameter should be removed entirely.
-6. **npm package names become `el-hakeem-frontend` and `el-hakeem-backend`.** The MySQL database stays `egx`. Say if the packages should keep the old names.
-7. **Deployment is same-site** (localhost, one LAN IP, or one HTTPS host). That is why `SameSite=Lax` is enough. If the dashboard and API will live on different sites, the cookie design has to change before implementation.
+1. **Single seeded user, no signup and no password change.** Approved.
+2. **Latin digits in the Arabic UI** (`ar-EG-u-nu-latn`). Approved.
+3. **Reads are public by default.** Changed from the original draft. `REQUIRE_AUTH_FOR_READS` defaults to `false`. `true` restores the gated-read behavior. Writes always require a session or the API key. `POST /api/parse/preview` is a read.
+4. **Cookie lifetime is 7 days.** Approved.
+5. **`?apiKey=` remains valid** for non-browser clients. Approved. The new UI does not use it.
+6. **Package names** `el-hakeem-frontend` and `el-hakeem-backend`. The MySQL database stays `egx`. Approved.
+7. **Same-site deployment.** Confirmed. `SameSite=Lax` stands.

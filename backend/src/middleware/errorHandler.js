@@ -2,10 +2,11 @@ import { ZodError } from 'zod';
 import { logger } from '../lib/logger.js';
 
 export class HttpError extends Error {
-  constructor(status, message, details) {
+  constructor(status, message, details, code) {
     super(message);
     this.status = status;
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -18,12 +19,13 @@ export function errorHandler(error, req, res, next) {
   if (error instanceof ZodError) {
     return res.status(400).json({
       error: 'Validation failed',
+      code: 'VALIDATION_FAILED',
       details: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
     });
   }
 
   if (error instanceof HttpError) {
-    return res.status(error.status).json({ error: error.message, details: error.details });
+    return res.status(error.status).json({ error: error.message, code: error.code, details: error.details });
   }
 
   if (error?.code === 'P2025') {

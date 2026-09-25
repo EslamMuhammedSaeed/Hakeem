@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api/client.js';
-import { Button, ErrorBanner, Input, Select, Spinner } from './ui.jsx';
-import { toLocalInputValue } from '../lib/format.js';
+import { money, toLocalInputValue } from '../lib/format.js';
+import { Button, ErrorBanner, Input, Ltr, Select, Spinner } from './ui.jsx';
 
 const EMPTY = { side: 'BUY', symbol: '', quantity: '', price: '', fees: '0', note: '' };
 
 export default function TradeFormDialog({ trade, onClose }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(EMPTY);
   const [executedAt, setExecutedAt] = useState(toLocalInputValue());
@@ -60,8 +62,8 @@ export default function TradeFormDialog({ trade, onClose }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-100">{trade ? 'Edit trade' : 'Add trade manually'}</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-200">
+          <h2 className="text-sm font-semibold text-slate-100">{trade ? t('trades.editTitle') : t('trades.addTitle')}</h2>
+          <button type="button" onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-200">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -71,59 +73,70 @@ export default function TradeFormDialog({ trade, onClose }) {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1">
-              <span className="text-xs text-slate-400">Side</span>
+              <span className="text-xs text-slate-400">{t('trades.side')}</span>
               <Select value={form.side} onChange={update('side')} className="w-full">
-                <option value="BUY">Buy</option>
-                <option value="SELL">Sell</option>
+                <option value="BUY">{t('enums.side.BUY')}</option>
+                <option value="SELL">{t('enums.side.SELL')}</option>
               </Select>
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400">Symbol</span>
-              <Input value={form.symbol} onChange={update('symbol')} placeholder="COMI" required className="w-full" />
+              <span className="text-xs text-slate-400">{t('trades.symbol')}</span>
+              <Input
+                value={form.symbol}
+                onChange={update('symbol')}
+                placeholder={t('trades.symbolPlaceholder')}
+                required
+                dir="ltr"
+                className="w-full"
+              />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400">Quantity</span>
-              <Input value={form.quantity} onChange={update('quantity')} inputMode="decimal" required className="w-full" />
+              <span className="text-xs text-slate-400">{t('trades.quantity')}</span>
+              <Input value={form.quantity} onChange={update('quantity')} inputMode="decimal" required dir="ltr" className="w-full" />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400">Price</span>
-              <Input value={form.price} onChange={update('price')} inputMode="decimal" required className="w-full" />
+              <span className="text-xs text-slate-400">{t('trades.price')}</span>
+              <Input value={form.price} onChange={update('price')} inputMode="decimal" required dir="ltr" className="w-full" />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400">Fees</span>
-              <Input value={form.fees} onChange={update('fees')} inputMode="decimal" className="w-full" />
+              <span className="text-xs text-slate-400">{t('trades.fees')}</span>
+              <Input value={form.fees} onChange={update('fees')} inputMode="decimal" dir="ltr" className="w-full" />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400">Executed at</span>
+              <span className="text-xs text-slate-400">{t('trades.executedAt')}</span>
               <Input
                 type="datetime-local"
                 value={executedAt}
                 onChange={(event) => setExecutedAt(event.target.value)}
                 required
+                dir="ltr"
                 className="w-full"
               />
             </label>
           </div>
 
           <label className="block space-y-1">
-            <span className="text-xs text-slate-400">Note</span>
-            <Input value={form.note} onChange={update('note')} placeholder="Optional" className="w-full" />
+            <span className="text-xs text-slate-400">{t('trades.note')}</span>
+            <Input value={form.note} onChange={update('note')} placeholder={t('trades.notePlaceholder')} className="w-full" />
           </label>
 
           <p className="tabular rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
-            Net amount: <span className="text-slate-200">{net.toFixed(2)} EGP</span>
-            <span className="ml-1 text-slate-600">
-              ({form.side === 'BUY' ? 'gross + fees' : 'gross - fees'})
+            {t('trades.netAmount')}{' '}
+            <Ltr className="text-slate-200">
+              {money(net)} {t('common.currency')}
+            </Ltr>
+            <span className="ms-1 text-slate-600">
+              {form.side === 'BUY' ? t('trades.grossPlusFees') : t('trades.grossMinusFees')}
             </span>
           </p>
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t('trades.cancel')}
             </Button>
             <Button type="submit" variant="primary" disabled={mutation.isPending}>
               {mutation.isPending ? <Spinner /> : null}
-              {trade ? 'Save changes' : 'Add trade'}
+              {trade ? t('trades.save') : t('trades.add')}
             </Button>
           </div>
         </form>

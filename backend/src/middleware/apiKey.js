@@ -13,12 +13,19 @@ function safeEqual(candidate) {
   return crypto.timingSafeEqual(provided, expected);
 }
 
-export function requireApiKey(req, res, next) {
+export function apiKeyFromRequest(req) {
   const header = req.get('x-api-key') ?? req.query.apiKey;
   const bearer = req.get('authorization')?.replace(/^Bearer\s+/i, '');
   const candidate = header || bearer;
+  return candidate ? String(candidate) : '';
+}
 
-  if (!candidate || !safeEqual(String(candidate))) {
+export function apiKeyMatches(candidate) {
+  return Boolean(candidate) && safeEqual(String(candidate));
+}
+
+export function requireApiKey(req, res, next) {
+  if (!apiKeyMatches(apiKeyFromRequest(req))) {
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }
   return next();

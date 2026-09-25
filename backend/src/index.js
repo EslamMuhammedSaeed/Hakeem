@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { disconnectPrisma, prisma } from './lib/prisma.js';
+import { ensureSeedUser } from './services/auth.service.js';
 
 const app = createApp();
 
@@ -9,6 +10,7 @@ async function start() {
   try {
     await prisma.$queryRaw`SELECT 1`;
     logger.info('Database connection verified');
+    await ensureSeedUser();
   } catch (error) {
     logger.error(
       { err: error },

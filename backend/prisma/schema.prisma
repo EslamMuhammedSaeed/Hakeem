@@ -65,6 +65,15 @@ model Trade {
   @@index([symbol, executedAt])
 }
 
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(191)
+  passwordHash String   @db.VarChar(255)
+  tokenVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Instrument {
   id                Int       @id @default(autoincrement())
   code              String    @unique @db.VarChar(32)

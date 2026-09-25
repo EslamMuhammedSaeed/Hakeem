@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api/client.js';
+import { SignInToEdit } from '../components/SessionControl.jsx';
 import TradesTable from '../components/TradesTable.jsx';
 import TradeFormDialog from '../components/TradeFormDialog.jsx';
 import { Button, Card, CardHeader, ErrorBanner, Input, Select, Spinner } from '../components/ui.jsx';
+import { useCanWrite } from '../hooks/useSession.js';
 import { dateTime } from '../lib/format.js';
 
 const INITIAL_FILTERS = { q: '', side: '', source: '', from: '', to: '', page: 1, pageSize: 50 };
@@ -18,6 +21,8 @@ function toCsv(trades) {
 }
 
 export default function Trades() {
+  const { t } = useTranslation();
+  const { canWrite, ready } = useCanWrite();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [dialog, setDialog] = useState(null);
@@ -29,15 +34,14 @@ export default function Trades() {
     onSuccess: () => queryClient.invalidateQueries(),
   });
 
-  const update = (key) => (event) =>
-    setFilters((current) => ({ ...current, [key]: event.target.value, page: 1 }));
+  const update = (key) => (event) => setFilters((current) => ({ ...current, [key]: event.target.value, page: 1 }));
 
   const exportCsv = () => {
     const csv = toCsv(trades.data?.items ?? []);
     const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `egx-trades-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `el-hakeem-trades-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -48,18 +52,21 @@ export default function Trades() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-100">Trades</h1>
+          <h1 className="text-2xl font-semibold text-slate-100">{t('trades.title')}</h1>
           <p className="text-sm text-slate-500">
-            {data ? `${data.total} trades` : 'Loading'} - parsed from notifications or added by hand
+            {data ? t('trades.summary', { count: data.total }) : t('trades.summaryLoading')}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={exportCsv} disabled={!data?.items?.length}>
-            <Download className="h-4 w-4" /> CSV
+            <Download className="h-4 w-4" /> {t('trades.csv')}
           </Button>
-          <Button variant="primary" onClick={() => setDialog({})}>
-            <Plus className="h-4 w-4" /> Add trade
-          </Button>
+          {ready && canWrite ? (
+            <Button variant="primary" onClick={() => setDialog({})}>
+              <Plus className="h-4 w-4" /> {t('trades.add')}
+            </Button>
+          ) : null}
+          {ready && !canWrite ? <SignInToEdit /> : null}
         </div>
       </div>
 
@@ -67,38 +74,43 @@ export default function Trades() {
 
       <Card>
         <CardHeader
-          title="Filters"
+          title={t('trades.filters')}
           actions={
             <Button variant="ghost" onClick={() => setFilters(INITIAL_FILTERS)}>
-              Reset
+              {t('trades.reset')}
             </Button>
           }
         />
         <div className="flex flex-wrap gap-3 px-5 py-4">
-          <Input placeholder="Symbol or note" value={filters.q} onChange={update('q')} className="w-48" />
+          <Input
+            placeholder={t('trades.searchPlaceholder')}
+            value={filters.q}
+            onChange={update('q')}
+            className="w-48"
+          />
           <Select value={filters.side} onChange={update('side')}>
-            <option value="">Any side</option>
-            <option value="BUY">Buy</option>
-            <option value="SELL">Sell</option>
+            <option value="">{t('trades.anySide')}</option>
+            <option value="BUY">{t('enums.side.BUY')}</option>
+            <option value="SELL">{t('enums.side.SELL')}</option>
           </Select>
           <Select value={filters.source} onChange={update('source')}>
-            <option value="">Any source</option>
-            <option value="NOTIFICATION">Notification</option>
-            <option value="MANUAL">Manual</option>
+            <option value="">{t('trades.anySource')}</option>
+            <option value="NOTIFICATION">{t('enums.source.NOTIFICATION')}</option>
+            <option value="MANUAL">{t('enums.source.MANUAL')}</option>
           </Select>
           <label className="flex items-center gap-2 text-xs text-slate-500">
-            From <Input type="date" value={filters.from} onChange={update('from')} />
+            {t('trades.from')} <Input type="date" value={filters.from} onChange={update('from')} dir="ltr" />
           </label>
           <label className="flex items-center gap-2 text-xs text-slate-500">
-            To <Input type="date" value={filters.to} onChange={update('to')} />
+            {t('trades.to')} <Input type="date" value={filters.to} onChange={update('to')} dir="ltr" />
           </label>
         </div>
       </Card>
 
       <Card>
         <CardHeader
-          title="All trades"
-          subtitle={data ? `Page ${data.page} of ${data.pageCount}` : undefined}
+          title={t('trades.all')}
+          subtitle={data ? t('trades.page', { page: data.page, pageCount: data.pageCount }) : undefined}
           actions={
             data && data.pageCount > 1 ? (
               <div className="flex items-center gap-2">
@@ -107,14 +119,14 @@ export default function Trades() {
                   disabled={filters.page <= 1}
                   onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}
                 >
-                  Prev
+                  {t('trades.prev')}
                 </Button>
                 <Button
                   variant="ghost"
                   disabled={filters.page >= data.pageCount}
                   onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
                 >
-                  Next
+                  {t('trades.next')}
                 </Button>
               </div>
             ) : null
@@ -122,17 +134,24 @@ export default function Trades() {
         />
         {trades.isLoading ? (
           <div className="flex items-center gap-2 px-5 py-10 text-sm text-slate-400">
-            <Spinner /> Loading trades...
+            <Spinner /> {t('trades.loading')}
           </div>
         ) : (
           <TradesTable
             trades={data?.items ?? []}
-            onEdit={(trade) => setDialog(trade)}
-            onDelete={(trade) => {
-              if (window.confirm(`Delete the ${trade.side} of ${trade.symbol} on ${dateTime(trade.executedAt)}?`)) {
-                remove.mutate(trade.id);
-              }
-            }}
+            onEdit={canWrite ? (trade) => setDialog(trade) : undefined}
+            onDelete={
+              canWrite
+                ? (trade) => {
+                    const message = t('trades.confirmDelete', {
+                      side: t(`enums.side.${trade.side}`),
+                      symbol: trade.symbol,
+                      when: dateTime(trade.executedAt),
+                    });
+                    if (window.confirm(message)) remove.mutate(trade.id);
+                  }
+                : undefined
+            }
           />
         )}
       </Card>
