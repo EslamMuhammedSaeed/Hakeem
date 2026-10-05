@@ -1,6 +1,16 @@
 export const SESSION_COOKIE = 'el_hakeem_session';
 export const SESSION_MAX_AGE = 7 * 24 * 60 * 60;
 
+/**
+ * `auto` follows the request: Express `req.secure` is true for a TLS connection
+ * and, with `trust proxy`, for `X-Forwarded-Proto: https`.
+ */
+export function cookieSecure(mode, requestIsSecure) {
+  if (mode === 'true') return true;
+  if (mode === 'false') return false;
+  return Boolean(requestIsSecure);
+}
+
 export function sessionCookie(token, { secure = false, maxAge = SESSION_MAX_AGE } = {}) {
   const parts = [
     `${SESSION_COOKIE}=${encodeURIComponent(token)}`,

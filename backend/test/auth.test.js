@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import test from 'node:test';
-import { clearSessionCookie, readCookie, sessionCookie } from '../src/lib/cookies.js';
+import express from 'express';
+import { clearSessionCookie, cookieSecure, readCookie, sessionCookie } from '../src/lib/cookies.js';
 import { hashPassword, verifyPassword } from '../src/lib/password.js';
 import { sessionMatches, signSession, verifySession } from '../src/lib/sessionToken.js';
 
@@ -43,8 +45,78 @@ test('session cookie is HttpOnly and SameSite=Lax, and Secure only when asked', 
   const cleared = clearSessionCookie({ secure: true });
   assert.match(cleared, /Max-Age=0/);
   assert.match(cleared, /Secure/);
+  const clearedOpen = clearSessionCookie({ secure: false });
+  assert.match(clearedOpen, /Max-Age=0/);
+  assert.doesNotMatch(clearedOpen, /Secure/);
 
   assert.equal(readCookie(dev), 'abc');
   assert.equal(readCookie('other=1; el_hakeem_session=a%20b'), 'a b');
   assert.equal(readCookie(undefined), null);
+});
+
+function cookieApp(mode) {
+  const app = express();
+  app.set('trust proxy', 1);
+  app.post('/login', (req, res) => {
+    res.setHeader('Set-Cookie', sessionCookie('tok', { secure: cookieSecure(mode, req.secure) }));
+    res.end('ok');
+  });
+  app.post('/logout', (req, res) => {
+    res.setHeader('Set-Cookie', clearSessionCookie({ secure: cookieSecure(mode, req.secure) }));
+    res.end('ok');
+  });
+  return app;
+}
+
+function listen(app) {
+  const server = createServer(app);
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve(server));
+  });
+}
+
+async function setCookie(server, path, headers = {}) {
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}${path}`, { method: 'POST', headers });
+  return response.headers.get('set-cookie') ?? '';
+}
+
+test('COOKIE_SECURE auto follows http, https, and X-Forwarded-Proto; true and false are forced', async () => {
+  assert.equal(cookieSecure('auto', false), false);
+  assert.equal(cookieSecure('auto', true), true);
+  assert.equal(cookieSecure('true', false), true);
+  assert.equal(cookieSecure('false', true), false);
+
+  const auto = await listen(cookieApp('auto'));
+  const forcedOn = await listen(cookieApp('true'));
+  const forcedOff = await listen(cookieApp('false'));
+  try {
+    const overHttp = await setCookie(auto, '/login');
+    assert.match(overHttp, /HttpOnly/);
+    assert.match(overHttp, /SameSite=Lax/);
+    assert.match(overHttp, /Max-Age=604800/);
+    assert.doesNotMatch(overHttp, /Secure/);
+
+    const forwarded = await setCookie(auto, '/login', { 'X-Forwarded-Proto': 'https' });
+    assert.match(forwarded, /Secure/);
+
+    const directHttps = sessionCookie('tok', { secure: cookieSecure('auto', true) });
+    assert.match(directHttps, /Secure/);
+
+    const always = await setCookie(forcedOn, '/login');
+    assert.match(always, /Secure/);
+    const never = await setCookie(forcedOff, '/login', { 'X-Forwarded-Proto': 'https' });
+    assert.doesNotMatch(never, /Secure/);
+
+    const clearedHttp = await setCookie(auto, '/logout');
+    assert.match(clearedHttp, /Max-Age=0/);
+    assert.doesNotMatch(clearedHttp, /Secure/);
+    const clearedHttps = await setCookie(auto, '/logout', { 'X-Forwarded-Proto': 'https' });
+    assert.match(clearedHttps, /Max-Age=0/);
+    assert.match(clearedHttps, /Secure/);
+  } finally {
+    auto.close();
+    forcedOn.close();
+    forcedOff.close();
+  }
 });

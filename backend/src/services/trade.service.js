@@ -29,10 +29,15 @@ function decimalField({ gt, gte } = {}) {
   });
 }
 
+const nullableQuantityField = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+  decimalField({ gt: 0 }).nullable(),
+);
+
 export const tradeInputSchema = z.object({
   side: z.enum(['BUY', 'SELL']),
   symbol: z.string().trim().min(1).max(32),
-  quantity: decimalField({ gt: 0 }),
+  quantity: nullableQuantityField,
   price: decimalField({ gte: 0 }),
   fees: decimalField({ gte: 0 }).optional(),
   executedAt: z.coerce.date(),
@@ -57,6 +62,22 @@ export const tradeQuerySchema = z.object({
 function computeNetAmount({ side, quantity, price, fees }) {
   const gross = quantity.times(price);
   return side === 'BUY' ? gross.plus(fees) : gross.minus(fees);
+}
+
+/**
+ * Quantity may be null (unknown share count). Net amount is only defined once
+ * quantity, price and fees are all known.
+ */
+export function amountsFor({ side, quantity, price, fees }) {
+  const feeValue = fees ?? new Decimal(0);
+  if (quantity == null) {
+    return { quantity: null, fees: feeValue, netAmount: null };
+  }
+  return {
+    quantity,
+    fees: feeValue,
+    netAmount: computeNetAmount({ side, quantity, price, fees: feeValue }),
+  };
 }
 
 export function buildTradeWhere(filters) {
@@ -97,17 +118,22 @@ export async function listTrades(filters) {
 }
 
 export async function createTrade(input) {
-  const fees = input.fees ?? new Decimal(0);
   const symbol = input.symbol.toUpperCase();
+  const amounts = amountsFor({
+    side: input.side,
+    quantity: input.quantity,
+    price: input.price,
+    fees: input.fees,
+  });
   const trade = await prisma.trade.create({
     data: {
       source: 'MANUAL',
       side: input.side,
       symbol,
-      quantity: input.quantity.toFixed(4),
+      quantity: amounts.quantity == null ? null : amounts.quantity.toFixed(4),
       price: input.price.toFixed(6),
-      fees: fees.toFixed(6),
-      netAmount: computeNetAmount({ ...input, fees }).toFixed(6),
+      fees: amounts.fees.toFixed(6),
+      netAmount: amounts.netAmount == null ? null : amounts.netAmount.toFixed(6),
       executedAt: input.executedAt,
       note: input.note ?? null,
     },
@@ -121,23 +147,27 @@ export async function updateTrade(id, input) {
   const current = await prisma.trade.findUnique({ where: { id } });
   if (!current) return null;
 
-  const merged = {
-    side: input.side ?? current.side,
-    quantity: input.quantity ?? new Decimal(current.quantity.toString()),
-    price: input.price ?? new Decimal(current.price.toString()),
-    fees: input.fees ?? new Decimal(current.fees.toString()),
-  };
+  const quantity =
+    input.quantity === undefined
+      ? current.quantity == null
+        ? null
+        : new Decimal(current.quantity.toString())
+      : input.quantity;
+  const price = input.price ?? new Decimal(current.price.toString());
+  const fees = input.fees ?? new Decimal(current.fees.toString());
+  const side = input.side ?? current.side;
   const symbol = (input.symbol ?? current.symbol).toUpperCase();
+  const amounts = amountsFor({ side, quantity, price, fees });
 
   const trade = await prisma.trade.update({
     where: { id },
     data: {
-      side: merged.side,
+      side,
       symbol,
-      quantity: merged.quantity.toFixed(4),
-      price: merged.price.toFixed(6),
-      fees: merged.fees.toFixed(6),
-      netAmount: computeNetAmount(merged).toFixed(6),
+      quantity: amounts.quantity == null ? null : amounts.quantity.toFixed(4),
+      price: price.toFixed(6),
+      fees: amounts.fees.toFixed(6),
+      netAmount: amounts.netAmount == null ? null : amounts.netAmount.toFixed(6),
       executedAt: input.executedAt ?? current.executedAt,
       note: input.note === undefined ? current.note : input.note,
     },

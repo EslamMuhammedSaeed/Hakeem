@@ -14,6 +14,7 @@ const IGNORE_PATTERNS = [
   /(?:عرض|خصم|كود|promo|discount|referral)/i,
   /(?:كود التحقق|رمز التحقق|verification code|otp)/i,
   /(?:تم ايداع|تم سحب|deposit|withdraw)/i,
+  /(?:تم تحويل|تحويل بنكي|bank transfer|instapay|funds? transfer)/i,
 ];
 
 /**
@@ -72,10 +73,35 @@ export function parseNotification({ title = '', body = '', executedAt = new Date
       attempted.push(`${rule.id}:error(${error.message})`);
       continue;
     }
-    if (!fields) continue;
+    if (!fields || !fields.side || fields.price === null || fields.price === undefined) continue;
+
+    const price = new Decimal(fields.price);
+    const symbol = (fields.symbol ?? 'UNKNOWN').slice(0, 32);
+    const quantityMissing = fields.quantity === null || fields.quantity === undefined;
+
+    // A missing share count is unknown, not 1. Net amount needs qty × price, so it
+    // stays null. Fees are whatever the text stated, or 0.
+    if (quantityMissing) {
+      if (!fields.symbol) continue;
+      const fees = new Decimal(fields.fees ?? 0);
+      return {
+        status: 'PARSED',
+        ruleId: rule.id,
+        error: null,
+        trade: {
+          side: fields.side,
+          symbol,
+          quantity: null,
+          price: price.toFixed(6),
+          fees: fees.toFixed(6),
+          netAmount: null,
+          gross: null,
+          executedAt,
+        },
+      };
+    }
 
     const quantity = new Decimal(fields.quantity);
-    const price = new Decimal(fields.price);
     const gross = quantity.times(price);
     const fees = deriveFees(gross, fields.total ?? null, fields.fees ?? 0);
     const netAmount = fields.side === 'BUY' ? gross.plus(fees) : gross.minus(fees);
@@ -86,7 +112,7 @@ export function parseNotification({ title = '', body = '', executedAt = new Date
       error: null,
       trade: {
         side: fields.side,
-        symbol: (fields.symbol ?? 'UNKNOWN').slice(0, 32),
+        symbol,
         quantity: quantity.toFixed(4),
         price: price.toFixed(6),
         fees: fees.toFixed(6),

@@ -115,10 +115,15 @@ The parser lives in `backend/src/services/parser/`:
 - `normalize.js` strips bidi control characters, tatweel and diacritics, converts Arabic-Indic digits
   (`٠١٢٣`) and the Arabic decimal separator (`٫`) to ASCII, and folds letter variants so `أمر` and `امر`
   match one pattern.
-- `rules.js` is an ordered rule table. The first rule that matches and yields a side, quantity and price
+- `rules.js` is an ordered rule table. The first rule that matches and yields a side, symbol and price
   wins, and its id is stored on the notification so you can always see which rule produced a trade.
+  Quantity is stored when the text includes it. Thndr's English fill does not always include a share
+  count: `Your ACTF limit sell order executed at 2.66` (the same sentence with `buy`, or with `market`
+  instead of `limit`) is still a trade. The symbol may be in the title (`🇪🇬 ACTF order`), the body, or
+  both. A missing share count is stored as unknown — it is not guessed as 1.
 - `index.js` runs the table, computes fees and net amount, and classifies non-trade notifications as
-  `IGNORED` instead of `FAILED`.
+  `IGNORED` instead of `FAILED`. When quantity is unknown, fees stay as extracted (or 0) and net amount
+  is left empty, because it is qty × price.
 
 Workflow when a real notification does not parse:
 
@@ -135,7 +140,7 @@ use it in Arabic patterns. Write keywords in their folded spelling (`كميه`, 
 | Model             | Purpose                                                                              |
 | ----------------- | ------------------------------------------------------------------------------------ |
 | `RawNotification` | Verbatim notification plus payload, dedupe hash, parse status, matched rule and error |
-| `Trade`           | Structured fill: side, symbol, quantity, price, fees, net amount, executed at         |
+| `Trade`           | Structured fill: side, symbol, quantity (nullable), price, fees, net amount (nullable), executed at |
 | `Instrument`      | Symbol metadata and the manually set mark price used for unrealized P&L               |
 
 Money is stored as `DECIMAL`, computed with `decimal.js`, and sent to the browser as strings. No floats.
@@ -143,7 +148,10 @@ Money is stored as `DECIMAL`, computed with `decimal.js`, and sent to the browse
 ## How P&L is computed
 
 Lots are matched **FIFO** per symbol. A buy carries its commission into the cost basis and a sale nets its
-commission out of the proceeds, so realized P&L is already fee-adjusted.
+commission out of the proceeds, so realized P&L is already fee-adjusted. Fills whose quantity is still
+unknown are listed on that symbol and excluded from lot matching. The position row shows an
+`UNKNOWN_QUANTITY` warning with the count. Set the quantity later on the Trades page; saving it
+recomputes the net amount from side, quantity, price and fees.
 
 There is no public EGX price feed here, so unrealized P&L uses the **mark price**: click any mark price on
 the Positions page to set the current market price. Until you set one, the last traded price is used.
@@ -159,9 +167,12 @@ Reads (`GET` trades, portfolio, notifications, instruments, parse rules, the SSE
 because it does not save anything. Set the flag to true to put those routes behind the same session-or-key
 check as writes.
 
-The session cookie lasts 7 days, is `HttpOnly` and `SameSite=Lax`, and is `Secure` only when
-`NODE_ENV=production`. That fits a dashboard and API on the same host (localhost, one LAN address, or one
-HTTPS site). Login is limited to 10 attempts per 15 minutes per IP.
+The session cookie lasts 7 days, is `HttpOnly` and `SameSite=Lax`. `COOKIE_SECURE` controls the
+`Secure` flag. `auto` (the default) sets it from the request: direct HTTPS, or `X-Forwarded-Proto: https`
+from the trusted proxy. Plain HTTP leaves it off, so a browser on a testing server without TLS can keep
+the cookie. `true` always sets it and `false` never does. Production logs one warning when the flag is
+`false`, and `auto` logs once if a login actually arrives over plain HTTP. Login is limited to 10 attempts
+per 15 minutes per IP.
 
 Production refuses the documented `JWT_SECRET` and `SEED_USER_PASSWORD`. Generate a secret with the same
 `node -e` command used for the API key, and pick a seed password of at least 12 characters.

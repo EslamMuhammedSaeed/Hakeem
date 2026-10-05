@@ -38,7 +38,12 @@ function dateFormatter(withTime) {
   return formatter;
 }
 
+function isBlank(value) {
+  return value === null || value === undefined || value === '';
+}
+
 export function money(value, { sign = false } = {}) {
+  if (value === null || value === '') return i18n.t('common.unknown');
   const num = Number(value ?? 0);
   if (!Number.isFinite(num)) return '-';
   return numberFormatter({
@@ -49,7 +54,8 @@ export function money(value, { sign = false } = {}) {
 }
 
 export function quantity(value) {
-  const num = Number(value ?? 0);
+  if (isBlank(value)) return i18n.t('common.unknown');
+  const num = Number(value);
   if (!Number.isFinite(num)) return '-';
   return numberFormatter({ minimumFractionDigits: 0, maximumFractionDigits: 4 }).format(num);
 }

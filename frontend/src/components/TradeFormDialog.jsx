@@ -8,6 +8,11 @@ import { Button, ErrorBanner, Input, Ltr, Select, Spinner } from './ui.jsx';
 
 const EMPTY = { side: 'BUY', symbol: '', quantity: '', price: '', fees: '0', note: '' };
 
+function decimalInput(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return String(Number(value));
+}
+
 export default function TradeFormDialog({ trade, onClose }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -19,7 +24,7 @@ export default function TradeFormDialog({ trade, onClose }) {
       setForm({
         side: trade.side,
         symbol: trade.symbol,
-        quantity: String(Number(trade.quantity)),
+        quantity: decimalInput(trade.quantity),
         price: String(Number(trade.price)),
         fees: String(Number(trade.fees)),
         note: trade.note ?? '',
@@ -43,7 +48,7 @@ export default function TradeFormDialog({ trade, onClose }) {
     mutation.mutate({
       side: form.side,
       symbol: form.symbol.trim().toUpperCase(),
-      quantity: form.quantity,
+      quantity: form.quantity.trim() === '' ? null : form.quantity,
       price: form.price,
       fees: form.fees === '' ? '0' : form.fees,
       note: form.note || null,
@@ -51,9 +56,11 @@ export default function TradeFormDialog({ trade, onClose }) {
     });
   };
 
-  const gross = (Number(form.quantity) || 0) * (Number(form.price) || 0);
+  const quantityText = form.quantity.trim();
+  const hasQuantity = quantityText !== '' && Number.isFinite(Number(quantityText));
   const fees = Number(form.fees) || 0;
-  const net = form.side === 'BUY' ? gross + fees : gross - fees;
+  const gross = hasQuantity ? Number(quantityText) * (Number(form.price) || 0) : null;
+  const net = gross === null ? null : form.side === 'BUY' ? gross + fees : gross - fees;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" onClick={onClose}>
@@ -92,7 +99,15 @@ export default function TradeFormDialog({ trade, onClose }) {
             </label>
             <label className="space-y-1">
               <span className="text-xs text-slate-400">{t('trades.quantity')}</span>
-              <Input value={form.quantity} onChange={update('quantity')} inputMode="decimal" required dir="ltr" className="w-full" />
+              <Input
+                value={form.quantity}
+                onChange={update('quantity')}
+                inputMode="decimal"
+                placeholder={t('common.unknown')}
+                dir="ltr"
+                className="w-full"
+              />
+              <span className="block text-[11px] leading-snug text-slate-500">{t('trades.quantityHint')}</span>
             </label>
             <label className="space-y-1">
               <span className="text-xs text-slate-400">{t('trades.price')}</span>
@@ -122,11 +137,15 @@ export default function TradeFormDialog({ trade, onClose }) {
 
           <p className="tabular rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
             {t('trades.netAmount')}{' '}
-            <Ltr className="text-slate-200">
-              {money(net)} {t('common.currency')}
-            </Ltr>
+            {net === null ? (
+              <span className="text-slate-200">{t('common.unknown')}</span>
+            ) : (
+              <Ltr className="text-slate-200">
+                {money(net)} {t('common.currency')}
+              </Ltr>
+            )}
             <span className="ms-1 text-slate-600">
-              {form.side === 'BUY' ? t('trades.grossPlusFees') : t('trades.grossMinusFees')}
+              {net === null ? t('trades.unknownNet') : form.side === 'BUY' ? t('trades.grossPlusFees') : t('trades.grossMinusFees')}
             </span>
           </p>
 

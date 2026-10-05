@@ -15,7 +15,8 @@
   },
   "common": {
     "loading": "Loading…",
-    "currency": "EGP"
+    "currency": "EGP",
+    "unknown": "Unknown"
   },
   "auth": {
     "signIn": "Sign in",
@@ -87,7 +88,9 @@
     "setMark": "Click to set the current market price",
     "lastTradeMark": "last",
     "save": "Save",
-    "unmatchedSell": "Sold {{quantity}} shares with no recorded purchase. Realized P&L for those is excluded."
+    "unmatchedSell": "Sold {{quantity}} shares with no recorded purchase. Realized P&L for those is excluded.",
+    "unknownQuantity_one": "{{count}} trade has an unknown quantity and is excluded from FIFO matching.",
+    "unknownQuantity_other": "{{count}} trades have an unknown quantity and are excluded from FIFO matching."
   },
   "trades": {
     "title": "Trades",
@@ -123,6 +126,8 @@
     "editTitle": "Edit trade",
     "addTitle": "Add trade manually",
     "quantity": "Quantity",
+    "quantityHint": "Leave this blank when the share count is unknown. Saving a quantity recalculates the net amount.",
+    "unknownNet": "Net amount stays unknown until a quantity is saved.",
     "note": "Note",
     "notePlaceholder": "Optional",
     "symbolPlaceholder": "COMI",

@@ -3,9 +3,22 @@ import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { emailSchema } from '../lib/email.js';
-import { clearSessionCookie, readCookie, sessionCookie } from '../lib/cookies.js';
+import { logger } from '../lib/logger.js';
+import { clearSessionCookie, cookieSecure, readCookie, sessionCookie } from '../lib/cookies.js';
 import { asyncHandler, HttpError } from '../middleware/errorHandler.js';
 import { authenticate, issueSession, userFromSessionToken } from '../services/auth.service.js';
+
+let warnedPlainHttpLogin = false;
+
+function secureCookie(req) {
+  return cookieSecure(env.COOKIE_SECURE, req.secure);
+}
+
+function warnOnceIfLoginOverHttp(secure) {
+  if (env.COOKIE_SECURE !== 'auto' || secure || warnedPlainHttpLogin) return;
+  warnedPlainHttpLogin = true;
+  logger.warn('Session cookie set over plain HTTP without Secure. Credentials travel unencrypted; TLS is recommended.');
+}
 
 const loginSchema = z.object({
   email: emailSchema,
@@ -35,13 +48,15 @@ authRouter.post(
     if (!user) throw new HttpError(401, 'Invalid email or password', undefined, 'INVALID_CREDENTIALS');
 
     const token = await issueSession(user);
-    res.setHeader('Set-Cookie', sessionCookie(token, { secure: env.isProduction }));
+    const secure = secureCookie(req);
+    warnOnceIfLoginOverHttp(secure);
+    res.setHeader('Set-Cookie', sessionCookie(token, { secure }));
     res.json({ email: user.email });
   }),
 );
 
 authRouter.post('/logout', (req, res) => {
-  res.setHeader('Set-Cookie', clearSessionCookie({ secure: env.isProduction }));
+  res.setHeader('Set-Cookie', clearSessionCookie({ secure: secureCookie(req) }));
   res.status(204).end();
 });
 

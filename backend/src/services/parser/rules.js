@@ -15,6 +15,7 @@ const SELL_WORDS = /(?:بيع|بعت|sell|sold)/i;
 const TICKER_BLOCKLIST = new Set([
   'EGP', 'USD', 'EUR', 'BUY', 'SELL', 'THNDR', 'EGX', 'PM', 'AM', 'API', 'OK',
   'NEW', 'YOUR', 'ORDER', 'SHARE', 'SHARES', 'AT', 'FOR', 'THE', 'AND', 'WAS',
+  'LIMIT', 'MARKET', 'FILLED',
 ]);
 
 export function extractSide(text) {
@@ -107,6 +108,13 @@ export function extractSymbol(text) {
   return null;
 }
 
+function usableTicker(value) {
+  if (!value) return null;
+  const base = value.replace(/\.CA$/i, '').toUpperCase();
+  if (TICKER_BLOCKLIST.has(base)) return null;
+  return value.toUpperCase();
+}
+
 function buildFromFields(text, forcedSide) {
   const side = forcedSide ?? extractSide(text);
   const quantity = extractQuantity(text);
@@ -157,6 +165,30 @@ export const rules = [
     description: 'تم تنفيذ عملية بيع على سهم HRHO كمية 500 بسعر 18.2',
     pattern: new RegExp(String.raw`(?:تم\s+)?(?:تنفيذ|نفذ|اكتمل).{0,60}?(?:شراء|بيع)`, 'i'),
     extract: (_match, text) => buildFromFields(text),
+  },
+  {
+    id: 'en-thndr-limit-market-fill',
+    description: 'Your ACTF limit sell order executed at 2.66 (quantity optional; market works the same way)',
+    // Thndr's English fill names the order type and the price, and often omits the
+    // share count. Symbol may sit in the title, in "Your SYMBOL ...", or both.
+    pattern: new RegExp(
+      String.raw`\byour\b(?:\s+(?<symbol>[A-Za-z]{2,6}(?:\.CA)?))?\s+(?:limit|market)\s+(?<side>buy|sell)\s+order\b.{0,80}?\bexecuted\s+at\s+(?<price>${NUM})`,
+      'i',
+    ),
+    extract: (match, text) => {
+      const side = /buy/i.test(match.groups.side) ? 'BUY' : 'SELL';
+      const price = parseNumber(match.groups.price);
+      const symbol = usableTicker(match.groups.symbol) ?? extractSymbol(text);
+      if (price === null || !symbol) return null;
+      return {
+        side,
+        symbol,
+        quantity: extractQuantity(text),
+        price,
+        fees: extractFees(text) ?? 0,
+        total: extractTotal(text),
+      };
+    },
   },
   {
     id: 'en-order-executed',
