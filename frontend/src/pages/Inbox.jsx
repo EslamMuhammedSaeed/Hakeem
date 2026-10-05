@@ -215,8 +215,13 @@ export default function InboxPage() {
                       <p className="tabular mt-1.5 text-xs text-emerald-400/90">
                         {t(`enums.side.${item.trade.side}`)}{' '}
                         <Ltr>
-                          {quantity(item.trade.quantity)} {item.trade.symbol} @ {price(item.trade.price)} ={' '}
-                          {money(item.trade.netAmount)} {t('common.currency')}
+                          {quantity(item.trade.quantity)} {item.trade.symbol} @ {price(item.trade.price)}
+                          {item.trade.netAmount != null ? (
+                            <>
+                              {' '}
+                              = {money(item.trade.netAmount)} {t('common.currency')}
+                            </>
+                          ) : null}
                         </Ltr>
                       </p>
                     ) : null}

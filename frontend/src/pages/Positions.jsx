@@ -10,6 +10,7 @@ import { dateTime, money, percent, price, quantity } from '../lib/format.js';
 
 function warningText(warning, t) {
   if (warning?.code === 'UNMATCHED_SELL') return t('positions.unmatchedSell', { quantity: warning.quantity });
+  if (warning?.code === 'UNKNOWN_QUANTITY') return t('positions.unknownQuantity', { count: warning.count });
   return typeof warning === 'string' ? warning : '';
 }
 
@@ -147,13 +148,24 @@ export default function Positions() {
                         <span dir="ltr" className="font-medium text-slate-100">
                           {position.symbol}
                         </span>
-                        {!position.isOpen ? <Badge>{t('positions.closed')}</Badge> : null}
+                        {!position.isOpen && (Number(position.buyQty) > 0 || Number(position.sellQty) > 0) ? (
+                          <Badge>{t('positions.closed')}</Badge>
+                        ) : null}
                         {position.warnings.length > 0 ? (
                           <span title={position.warnings.map((warning) => warningText(warning, t)).join('\n')}>
                             <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
                           </span>
                         ) : null}
                       </div>
+                      {position.warnings.length > 0 ? (
+                        <div className="mt-1 space-y-0.5">
+                          {position.warnings.map((warning) => (
+                            <p key={warning.code} className="max-w-xs text-[11px] leading-snug text-amber-400/90">
+                              {warningText(warning, t)}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
                     </td>
                     <td dir="ltr" className="tabular px-3 py-3 text-end text-slate-300">
                       {quantity(position.quantity)}

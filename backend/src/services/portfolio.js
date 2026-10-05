@@ -7,6 +7,10 @@ function toDecimal(value) {
   return new Decimal(value?.toString() ?? '0');
 }
 
+function hasKnownQuantity(trade) {
+  return trade.quantity !== null && trade.quantity !== undefined;
+}
+
 /**
  * Unit economics include commission: a buy lot carries its fee in the cost basis and a
  * sale nets its fee out of the proceeds, so realized P&L is already fee-adjusted.
@@ -29,12 +33,20 @@ export function computeSymbolPosition(symbol, trades) {
   let unmatchedSellQty = ZERO;
   let lastPrice = null;
   let lastTradeAt = null;
+  let unknownQuantityCount = 0;
 
   for (const trade of trades) {
-    const quantity = toDecimal(trade.quantity);
     totalFees = totalFees.plus(toDecimal(trade.fees));
-    lastPrice = toDecimal(trade.price);
+    if (trade.price !== null && trade.price !== undefined) lastPrice = toDecimal(trade.price);
     lastTradeAt = trade.executedAt;
+
+    // The fill is real, but a missing share count cannot enter lot matching.
+    if (!hasKnownQuantity(trade)) {
+      unknownQuantityCount += 1;
+      continue;
+    }
+
+    const quantity = toDecimal(trade.quantity);
 
     if (trade.side === 'BUY') {
       buyQty = buyQty.plus(quantity);
@@ -66,6 +78,9 @@ export function computeSymbolPosition(symbol, trades) {
   const warnings = [];
   if (unmatchedSellQty.gt(0)) {
     warnings.push({ code: 'UNMATCHED_SELL', quantity: unmatchedSellQty.toFixed(2) });
+  }
+  if (unknownQuantityCount > 0) {
+    warnings.push({ code: 'UNKNOWN_QUANTITY', count: unknownQuantityCount });
   }
 
   return {
@@ -134,7 +149,12 @@ export async function getPositions({ includeClosed = true } = {}) {
 
   const positions = [...bySymbol.entries()]
     .map(([symbol, symbolTrades]) => withMarkPrice(computeSymbolPosition(symbol, symbolTrades), instrumentByCode.get(symbol)))
-    .filter((position) => includeClosed || position.isOpen)
+    .filter(
+      (position) =>
+        includeClosed ||
+        position.isOpen ||
+        position.warnings.some((warning) => warning.code === 'UNKNOWN_QUANTITY'),
+    )
     .sort((a, b) => Number(b.marketValue) - Number(a.marketValue) || a.symbol.localeCompare(b.symbol));
 
   return positions;
@@ -175,6 +195,7 @@ export async function getSummary() {
   for (const symbolTrades of bySymbol.values()) {
     const lots = [];
     for (const trade of symbolTrades) {
+      if (!hasKnownQuantity(trade)) continue;
       const quantity = toDecimal(trade.quantity);
       if (trade.side === 'BUY') {
         lots.push({ quantity, unitCost: unitCost(trade) });
