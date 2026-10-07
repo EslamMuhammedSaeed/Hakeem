@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Plus } from 'lucide-react';
+import {
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // Download,
+  Plus,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client.js';
-import { SignInToEdit } from '../components/SessionControl.jsx';
+// Hidden for now (trades-only view) — restore by uncommenting
+// import { SignInToEdit } from '../components/SessionControl.jsx';
 import TradesTable from '../components/TradesTable.jsx';
 import TradeFormDialog from '../components/TradeFormDialog.jsx';
 import { Button, Card, CardHeader, ErrorBanner, Input, Select, Spinner } from '../components/ui.jsx';
@@ -12,13 +17,14 @@ import { dateTime } from '../lib/format.js';
 
 const INITIAL_FILTERS = { q: '', side: '', source: '', from: '', to: '', page: 1, pageSize: 50 };
 
-function toCsv(trades) {
-  const header = ['id', 'executedAt', 'side', 'symbol', 'quantity', 'price', 'fees', 'netAmount', 'source', 'note'];
-  const rows = trades.map((trade) =>
-    header.map((key) => `"${String(trade[key] ?? '').replace(/"/g, '""')}"`).join(','),
-  );
-  return [header.join(','), ...rows].join('\n');
-}
+// Hidden for now (trades-only view) — restore by uncommenting
+// function toCsv(trades) {
+//   const header = ['id', 'executedAt', 'side', 'symbol', 'quantity', 'price', 'fees', 'netAmount', 'source', 'note'];
+//   const rows = trades.map((trade) =>
+//     header.map((key) => `"${String(trade[key] ?? '').replace(/"/g, '""')}"`).join(','),
+//   );
+//   return [header.join(','), ...rows].join('\n');
+// }
 
 export default function Trades() {
   const { t } = useTranslation();
@@ -36,15 +42,16 @@ export default function Trades() {
 
   const update = (key) => (event) => setFilters((current) => ({ ...current, [key]: event.target.value, page: 1 }));
 
-  const exportCsv = () => {
-    const csv = toCsv(trades.data?.items ?? []);
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `el-hakeem-trades-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // const exportCsv = () => {
+  //   const csv = toCsv(trades.data?.items ?? []);
+  //   const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+  //   const link = document.createElement('a');
+  //   link.href = url;
+  //   link.download = `el-hakeem-trades-${new Date().toISOString().slice(0, 10)}.csv`;
+  //   link.click();
+  //   URL.revokeObjectURL(url);
+  // };
 
   const data = trades.data;
 
@@ -53,20 +60,26 @@ export default function Trades() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100">{t('trades.title')}</h1>
+          {/* Hidden for now (trades-only view) — restore by uncommenting
           <p className="text-sm text-slate-500">
             {data ? t('trades.summary', { count: data.total }) : t('trades.summaryLoading')}
           </p>
+          */}
         </div>
         <div className="flex flex-wrap gap-2">
+          {/* Hidden for now (trades-only view) — restore by uncommenting
           <Button onClick={exportCsv} disabled={!data?.items?.length}>
             <Download className="h-4 w-4" /> {t('trades.csv')}
           </Button>
+          */}
           {ready && canWrite ? (
             <Button variant="primary" onClick={() => setDialog({})}>
               <Plus className="h-4 w-4" /> {t('trades.add')}
             </Button>
           ) : null}
+          {/* Hidden for now (trades-only view) — restore by uncommenting
           {ready && !canWrite ? <SignInToEdit /> : null}
+          */}
         </div>
       </div>
 
