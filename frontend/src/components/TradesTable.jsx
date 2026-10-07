@@ -1,6 +1,12 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { dateTime, money, price, quantity } from '../lib/format.js';
+import {
+  dateTime,
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // money,
+  price,
+  quantity,
+} from '../lib/format.js';
 import { Badge } from './ui.jsx';
 
 export default function TradesTable({ trades = [], onEdit, onDelete, compact = false }) {
@@ -20,8 +26,12 @@ export default function TradesTable({ trades = [], onEdit, onDelete, compact = f
             <th className="px-3 py-3 font-medium">{t('trades.symbol')}</th>
             <th className="px-3 py-3 text-end font-medium">{t('trades.qty')}</th>
             <th className="px-3 py-3 text-end font-medium">{t('trades.price')}</th>
+            {/* Hidden for now (trades-only view) — restore by uncommenting
             {!compact && <th className="px-3 py-3 text-end font-medium">{t('trades.fees')}</th>}
+            */}
+            {/* Hidden for now (trades-only view) — restore by uncommenting
             <th className="px-3 py-3 text-end font-medium">{t('trades.net')}</th>
+            */}
             {!compact && <th className="px-3 py-3 font-medium">{t('trades.source')}</th>}
             {onEdit || onDelete ? <th className="px-5 py-3" /> : null}
           </tr>
@@ -44,14 +54,18 @@ export default function TradesTable({ trades = [], onEdit, onDelete, compact = f
               <td dir="ltr" className="tabular px-3 py-2.5 text-end text-slate-300">
                 {price(trade.price)}
               </td>
+              {/* Hidden for now (trades-only view) — restore by uncommenting
               {!compact && (
                 <td dir="ltr" className="tabular px-3 py-2.5 text-end text-slate-500">
                   {money(trade.fees)}
                 </td>
               )}
+              */}
+              {/* Hidden for now (trades-only view) — restore by uncommenting
               <td dir="ltr" className="tabular px-3 py-2.5 text-end font-medium text-slate-100">
                 {money(trade.netAmount)}
               </td>
+              */}
               {!compact && (
                 <td className="px-3 py-2.5">
                   <Badge tone={trade.source === 'MANUAL' ? 'amber' : 'sky'}>{t(`enums.source.${trade.source}`)}</Badge>

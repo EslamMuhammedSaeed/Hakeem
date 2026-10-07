@@ -1,5 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Inbox, LayoutDashboard, PieChart, Receipt } from 'lucide-react';
+import {
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // Inbox,
+  // LayoutDashboard,
+  // PieChart,
+  Receipt,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLiveUpdates } from '../hooks/useLiveUpdates.js';
 import { dateTime } from '../lib/format.js';
@@ -8,10 +14,13 @@ import LanguageSwitcher from './LanguageSwitcher.jsx';
 import SessionControl from './SessionControl.jsx';
 
 const NAV = [
-  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
-  { to: '/positions', labelKey: 'nav.positions', icon: PieChart },
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // { to: '/positions', labelKey: 'nav.positions', icon: PieChart },
   { to: '/trades', labelKey: 'nav.trades', icon: Receipt },
-  { to: '/inbox', labelKey: 'nav.inbox', icon: Inbox },
+  // Hidden for now (trades-only view) — restore by uncommenting
+  // { to: '/inbox', labelKey: 'nav.inbox', icon: Inbox },
 ];
 
 export default function Layout() {
